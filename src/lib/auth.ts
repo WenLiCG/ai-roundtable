@@ -132,25 +132,47 @@ export async function requireAuth() {
   return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 }
 
-export function attachSessionCookie(response: NextResponse) {
+function shouldUseSecureCookie(request?: Request) {
+  if (process.env.AUTH_COOKIE_SECURE === "true") {
+    return true;
+  }
+
+  if (process.env.AUTH_COOKIE_SECURE === "false") {
+    return false;
+  }
+
+  if (!request) {
+    return process.env.NODE_ENV === "production";
+  }
+
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+
+  return new URL(request.url).protocol === "https:";
+}
+
+export function attachSessionCookie(response: NextResponse, request?: Request) {
   response.cookies.set({
     name: COOKIE_NAME,
     value: createSessionValue(),
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(request),
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   });
 }
 
-export function clearSessionCookie(response: NextResponse) {
+export function clearSessionCookie(response: NextResponse, request?: Request) {
   response.cookies.set({
     name: COOKIE_NAME,
     value: "",
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(request),
     path: "/",
     maxAge: 0,
   });
