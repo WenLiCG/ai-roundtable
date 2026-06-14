@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DiscussionStatus {
+  pending
+  running
+  completed
+  cancelled
+  failed
+}
+
+enum ModelResponseStatus {
+  pending
+  streaming
+  success
+  failed
+  timeout
+  cancelled
+}
+
+model AiModel {
+  id               String          @id @default(cuid())
+  name             String
+  baseUrl          String
+  model            String
+  apiKeyCiphertext String
+  apiKeyIv         String
+  apiKeyAuthTag    String
+  enabled          Boolean         @default(true)
+  timeoutMs        Int             @default(120000)
+  maxInputChars    Int?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  responses        ModelResponse[]
+}
+
+model Discussion {
+  id                     String             @id @default(cuid())
+  question               String
+  maxRounds              Int                @default(3)
+  promptTemplate         String
+  selectedModelIds       Json
+  selectedModelsSnapshot Json
+  status                 DiscussionStatus   @default(pending)
+  startedAt              DateTime?
+  completedAt            DateTime?
+  error                  String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  rounds                 DiscussionRound[]
+  responses              ModelResponse[]
+}
+
+model DiscussionRound {
+  id              String          @id @default(cuid())
+  discussionId    String
+  roundNumber     Int
+  prompt          String
+  stitchedContent String?
+  startedAt       DateTime        @default(now())
+  completedAt     DateTime?
+  discussion      Discussion      @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  responses       ModelResponse[]
+
+  @@unique([discussionId, roundNumber])
+}
+
+model ModelResponse {
+  id           String              @id @default(cuid())
+  discussionId String
+  roundId      String
+  aiModelId    String?
+  modelName    String
+  modelRef     String
+  status       ModelResponseStatus @default(pending)
+  content      String              @default("")
+  error        String?
+  attemptCount Int                 @default(0)
+  latencyMs    Int?
+  startedAt    DateTime            @default(now())
+  completedAt  DateTime?
+  discussion   Discussion          @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  round        DiscussionRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  aiModel      AiModel?            @relation(fields: [aiModelId], references: [id], onDelete: SetNull)
+}
