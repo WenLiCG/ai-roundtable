@@ -5,9 +5,9 @@ services:
     environment:
       POSTGRES_DB: ai_roundtable
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,12 +23,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_roundtable?schema=public
-      APP_ENCRYPTION_KEY: change-this-long-random-secret-before-real-use
-      NEXT_PUBLIC_APP_NAME: AI Roundtable
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ai_roundtable?schema=public
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-change-this-long-random-secret-before-real-use}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-AI Roundtable}
     ports:
-      - "3000:3000"
+      - "${APP_BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-3000}:3000"
 
 volumes:
   postgres_data:
-

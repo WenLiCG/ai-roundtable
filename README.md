@@ -56,6 +56,77 @@ The Compose setup starts:
 
 The app runs `prisma db push` automatically when the container starts.
 
+## One-Command VPS Install
+
+On a Debian/Ubuntu VPS with root access, install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | bash -s install
+```
+
+The installer:
+
+- clones or updates the repository at `/opt/ai-roundtable`
+- installs Docker automatically when Docker is missing
+- creates `/opt/ai-roundtable/.env` with fresh database and encryption secrets
+- keeps existing `.env` and PostgreSQL data on repeated runs
+- starts `app` and `postgres` with Docker Compose
+
+Default URL:
+
+```text
+http://YOUR_SERVER_IP:3000
+```
+
+Default access password:
+
+```text
+admin
+```
+
+Change the password from the Models/Settings page after the first sign in.
+
+Update an existing installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | bash -s update
+```
+
+Delete the installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | bash -s delete
+```
+
+The `delete` command stops containers and removes `/opt/ai-roundtable`, but keeps the PostgreSQL Docker volume by default. To delete database data too:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | DELETE_DATA=1 bash -s delete
+```
+
+Common install/update options:
+
+```bash
+# Use another app port
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | APP_PORT=8088 bash -s install
+
+# Stop Docker containers that already publish the selected app port
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | TAKE_OVER_PORT=1 bash -s install
+
+# Reinstall and delete PostgreSQL Docker volume data
+curl -fsSL https://raw.githubusercontent.com/WenLiCG/ai-roundtable/main/scripts/install.sh | RESET_DATA=1 bash -s install
+```
+
+Useful service commands:
+
+```bash
+cd /opt/ai-roundtable
+docker compose ps
+docker compose logs -f app
+docker compose up -d --build
+docker compose down
+```
+
 ## Local Development Without Docker
 
 Create local environment files:
