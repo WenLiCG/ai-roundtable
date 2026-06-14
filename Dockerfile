@@ -1,6 +1,7 @@
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 FROM node:24-alpine AS builder
@@ -17,4 +18,3 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=builder /app ./
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma db push && npm run start"]
-
