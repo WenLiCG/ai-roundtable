@@ -14,6 +14,7 @@ AI Roundtable is a web app for multi-model AI discussion. A user asks one questi
 - Save discussion history in PostgreSQL
 - Export Markdown or JSON
 - Edit, copy, test, and delete model configurations
+- Simple site access password, default `admin`, editable in settings
 - Docker Compose setup with PostgreSQL included
 
 ## Stack
@@ -39,6 +40,14 @@ Then open:
 ```text
 http://localhost:3000
 ```
+
+Default access password:
+
+```text
+admin
+```
+
+Change it from the Models/Settings page after the first sign in.
 
 The Compose setup starts:
 
@@ -79,6 +88,8 @@ NEXT_PUBLIC_APP_NAME="AI Roundtable"
 ```
 
 `APP_ENCRYPTION_KEY` is used to encrypt model API keys before storing them in the database. Do not reuse the sample value in production.
+
+The site access password defaults to `admin` until it is changed in the app. Password changes are stored as a server-side hash in PostgreSQL.
 
 ## Model Configuration
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
 import { getDb } from "@/lib/db";
 import { modelCreateSchema } from "@/lib/schemas";
@@ -30,6 +31,12 @@ function serializeModel(model: {
 }
 
 export async function GET() {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const db = getDb();
   const models = await db.aiModel.findMany({ orderBy: { createdAt: "asc" } });
 
@@ -37,6 +44,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const input = modelCreateSchema.parse(await request.json());
     const encrypted = encryptSecret(input.apiKey);
@@ -64,4 +77,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

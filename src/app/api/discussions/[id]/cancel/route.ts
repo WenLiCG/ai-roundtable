@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { cancelDiscussion } from "@/lib/discussion-cancel";
 import { getDb } from "@/lib/db";
 
@@ -9,6 +10,12 @@ type Context = {
 };
 
 export async function POST(_request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const { id } = await context.params;
   const cancelledInMemory = cancelDiscussion(id);
   const db = getDb();

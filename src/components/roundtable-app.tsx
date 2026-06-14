@@ -7,7 +7,10 @@ import {
   Copy,
   Download,
   History,
+  KeyRound,
   Loader2,
+  Lock,
+  LogOut,
   Play,
   Plus,
   RefreshCw,
@@ -23,6 +26,7 @@ import type { RunEvent } from "@/lib/events";
 
 type ExecutionMode = "concurrent" | "sequential";
 type ThemeMode = "light" | "dark";
+type AuthState = "checking" | "authenticated" | "guest";
 
 type AiModelView = {
   id: string;
@@ -216,6 +220,7 @@ function OutputPanel({
 
 export function RoundtableApp() {
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
+  const [authState, setAuthState] = useState<AuthState>("checking");
   const [activeView, setActiveView] = useState<"run" | "models" | "history">("run");
   const [models, setModels] = useState<AiModelView[]>([]);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -233,6 +238,13 @@ export function RoundtableApp() {
   const [modelForm, setModelForm] = useState(emptyModelForm);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -243,9 +255,90 @@ export function RoundtableApp() {
   );
 
   useEffect(() => {
-    void refreshModels();
-    void refreshHistory();
+    void checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (authState === "authenticated") {
+      void refreshModels();
+      void refreshHistory();
+    }
+  }, [authState]);
+
+  async function checkAuth() {
+    try {
+      const response = await fetch("/api/auth/status", { cache: "no-store" });
+      const data = (await response.json()) as { authenticated?: boolean };
+      setAuthState(data.authenticated ? "authenticated" : "guest");
+    } catch {
+      setAuthState("guest");
+    }
+  }
+
+  async function signIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setIsSigningIn(true);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "登录失败。");
+      }
+
+      setLoginPassword("");
+      setAuthState("authenticated");
+      setMessage("已登录。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "登录失败。");
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    abortRef.current?.abort();
+    setAuthState("guest");
+    setModels([]);
+    setHistoryItems([]);
+    setLiveDiscussion({ question: "", status: "idle", rounds: [] });
+    setMessage("已退出。");
+  }
+
+  async function updatePassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setMessage("两次输入的新密码不一致。");
+      return;
+    }
+
+    const response = await fetch("/api/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      }),
+    });
+    const data = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setMessage(data.error ?? "密码修改失败。");
+      return;
+    }
+
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setMessage("访问密码已更新。");
+  }
 
   async function refreshModels() {
     try {
@@ -661,6 +754,71 @@ export function RoundtableApp() {
     ? finalRound?.responses.find((response) => response.modelId === selectedAiPage)
     : undefined;
 
+  if (authState !== "authenticated") {
+    return (
+      <main
+        className={classNames(
+          "flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-zinc-100",
+          themeMode === "light" ? "theme-light" : "theme-dark",
+        )}
+      >
+        <section className="w-full max-w-md rounded-lg border border-zinc-800 bg-[#12161d] p-6 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-400 text-neutral-950">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">AI Roundtable</h1>
+              <p className="text-sm text-zinc-400">请输入访问密码</p>
+            </div>
+          </div>
+
+          {authState === "checking" ? (
+            <div className="mt-6 flex items-center gap-2 rounded-md border border-zinc-800 bg-neutral-950 p-4 text-sm text-zinc-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              正在检查登录状态...
+            </div>
+          ) : (
+            <form onSubmit={signIn} className="mt-6 space-y-4">
+              <label className="block text-sm">
+                <span className="text-zinc-300">访问密码</span>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  autoFocus
+                  placeholder="默认密码：admin"
+                  className="mt-2 h-11 w-full rounded-md border border-zinc-700 bg-neutral-950 px-3 outline-none focus:border-emerald-400"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSigningIn || !loginPassword}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-emerald-400 font-semibold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                登录
+              </button>
+            </form>
+          )}
+
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-zinc-500">首次部署默认密码为 admin，登录后可在设置中修改。</p>
+            <button
+              type="button"
+              onClick={() => setThemeMode((mode) => (mode === "light" ? "dark" : "light"))}
+              className="h-8 rounded-md border border-zinc-700 px-2 text-xs text-zinc-300"
+            >
+              {themeMode === "light" ? "Light" : "Dark"}
+            </button>
+          </div>
+
+          {message && <p className="mt-4 rounded-md border border-zinc-800 bg-neutral-950 p-3 text-sm text-zinc-300">{message}</p>}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={classNames("min-h-screen bg-neutral-950 text-zinc-100", themeMode === "light" ? "theme-light" : "theme-dark")}>
       <div className="border-b border-zinc-800 bg-neutral-950/95">
@@ -681,6 +839,14 @@ export function RoundtableApp() {
               className="inline-flex h-9 items-center rounded-md border border-zinc-700 px-3 text-sm text-zinc-300 transition hover:bg-[#1f242b] hover:text-white"
             >
               {themeMode === "light" ? "Light" : "Dark"}
+            </button>
+            <button
+              type="button"
+              onClick={signOut}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-sm text-zinc-300 transition hover:bg-[#1f242b] hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              退出
             </button>
             {[
               ["run", Play, "讨论"],
@@ -974,6 +1140,54 @@ export function RoundtableApp() {
 
         {activeView === "models" && (
           <section className="grid gap-5 xl:col-span-2 xl:grid-cols-[420px_1fr]">
+            <form onSubmit={updatePassword} className="rounded-lg border border-zinc-800 bg-[#12161d] p-4 xl:col-span-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-400 text-neutral-950">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">访问密码</h2>
+                  <p className="text-sm text-zinc-500">首次部署默认密码为 admin，修改后默认密码失效。</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="text-zinc-300">当前密码</span>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
+                    className="mt-1 h-10 w-full rounded-md border border-zinc-700 bg-neutral-950 px-3 outline-none focus:border-emerald-400"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-zinc-300">新密码</span>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))}
+                    className="mt-1 h-10 w-full rounded-md border border-zinc-700 bg-neutral-950 px-3 outline-none focus:border-emerald-400"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-zinc-300">确认新密码</span>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+                    className="mt-1 h-10 w-full rounded-md border border-zinc-700 bg-neutral-950 px-3 outline-none focus:border-emerald-400"
+                  />
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-400 px-4 font-semibold text-neutral-950"
+              >
+                <KeyRound className="h-4 w-4" />
+                修改访问密码
+              </button>
+            </form>
+
             <form onSubmit={addModel} className="rounded-lg border border-zinc-800 bg-[#12161d] p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">{editingModelId ? "编辑模型" : "新增 OpenAI 兼容模型"}</h2>

@@ -40,4 +40,13 @@ export const runDiscussionSchema = z.object({
 
 export const exportFormatSchema = z.enum(["md", "json"]).default("md");
 
+export const loginSchema = z.object({
+  password: z.string().min(1).max(200),
+});
+
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(1).max(200),
+});
+
 export type RunDiscussionInput = z.infer<typeof runDiscussionSchema>;

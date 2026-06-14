@@ -1,4 +1,5 @@
 import { encodeRunEvent } from "@/lib/events";
+import { requireAuth } from "@/lib/auth";
 import { runDiscussion } from "@/lib/discussion-runner";
 import { runDiscussionSchema } from "@/lib/schemas";
 
@@ -6,6 +7,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const input = runDiscussionSchema.parse(await request.json());
   const encoder = new TextEncoder();
 
@@ -42,4 +49,3 @@ export async function POST(request: Request) {
     },
   });
 }
-

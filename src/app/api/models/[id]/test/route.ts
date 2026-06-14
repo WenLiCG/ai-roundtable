@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { decryptSecret } from "@/lib/crypto";
 import { getDb } from "@/lib/db";
 import { callOpenAiCompatibleWithRetry } from "@/lib/openai-compatible";
@@ -10,6 +11,12 @@ type Context = {
 };
 
 export async function POST(request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const { id } = await context.params;
   const db = getDb();
   const model = await db.aiModel.findUnique({ where: { id } });
@@ -38,4 +45,3 @@ export async function POST(request: Request, context: Context) {
 
   return NextResponse.json(result, { status: result.status === "success" ? 200 : 502 });
 }
-

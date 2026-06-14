@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { discussionToMarkdown } from "@/lib/export";
 import { getDb } from "@/lib/db";
 import { exportFormatSchema } from "@/lib/schemas";
@@ -10,6 +11,12 @@ type Context = {
 };
 
 export async function GET(request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const { id } = await context.params;
   const format = exportFormatSchema.parse(new URL(request.url).searchParams.get("format") ?? "md");
   const db = getDb();
@@ -46,4 +53,3 @@ export async function GET(request: Request, context: Context) {
     },
   });
 }
-

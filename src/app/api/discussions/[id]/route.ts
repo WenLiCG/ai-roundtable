@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,12 @@ type Context = {
 };
 
 export async function GET(_request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const { id } = await context.params;
   const db = getDb();
   const discussion = await db.discussion.findUnique({
@@ -30,4 +37,3 @@ export async function GET(_request: Request, context: Context) {
 
   return NextResponse.json({ discussion });
 }
-

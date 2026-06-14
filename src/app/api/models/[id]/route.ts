@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
 import { getDb } from "@/lib/db";
 import { modelUpdateSchema } from "@/lib/schemas";
@@ -10,6 +11,12 @@ type Context = {
 };
 
 export async function PATCH(request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const { id } = await context.params;
     const input = modelUpdateSchema.parse(await request.json());
@@ -55,10 +62,15 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(_request: Request, context: Context) {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const { id } = await context.params;
   const db = getDb();
   await db.aiModel.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });
 }
-

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const unauthorized = await requireAuth();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const db = getDb();
   const discussions = await db.discussion.findMany({
     orderBy: { createdAt: "desc" },
@@ -31,4 +38,3 @@ export async function GET() {
     })),
   });
 }
-

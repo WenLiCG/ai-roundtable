@@ -90,3 +90,10 @@ model ModelResponse {
   round        DiscussionRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
   aiModel      AiModel?            @relation(fields: [aiModelId], references: [id], onDelete: SetNull)
 }
+
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
